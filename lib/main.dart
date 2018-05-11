@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_news/components/navigation_icon_view.dart';
 
 import 'scene/home.dart';
 import 'scene/video.dart';
@@ -14,58 +15,152 @@ class MyApp extends StatelessWidget {
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: new MyHomePage(title: 'Flutter Demo Home Page'),
+      home: new BottomNavigation(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-  final String title;
-
+class CustomIcon extends StatelessWidget {
   @override
-  _MyHomePageState createState() => new _MyHomePageState();
+  Widget build(BuildContext context) {
+    final IconThemeData iconTheme = IconTheme.of(context);
+    return new Container(
+      margin: const EdgeInsets.all(4.0),
+      width: iconTheme.size - 8.0,
+      height: iconTheme.size - 8.0,
+      color: iconTheme.color,
+    );
+  }
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  List<BottomNavigationBarItem> _items;
+class BottomNavigation extends StatefulWidget {
+  static const String routeName = '/material/bottom_navigation';
 
-  void _initBarItem() {
-    _items = <BottomNavigationBarItem>[
-      new BottomNavigationBarItem(
-          icon: new Icon(Icons.home), title: new Text("首页")),
-      new BottomNavigationBarItem(
-          icon: new Icon(Icons.videocam), title: new Text("视频")),
-      new BottomNavigationBarItem(
-          icon: new Icon(Icons.fiber_smart_record), title: new Text("发现")),
-      new BottomNavigationBarItem(
-          icon: new Icon(Icons.perm_identity), title: new Text("我的"))
-    ];
-  }
+  @override
+  _BottomNavigationState createState() => new _BottomNavigationState();
+}
+
+class _BottomNavigationState extends State<BottomNavigation>
+    with TickerProviderStateMixin {
+  int _currentIndex = 0;
+  BottomNavigationBarType _type = BottomNavigationBarType.shifting;
+  List<NavigationIconView> _navigationViews;
 
   @override
   void initState() {
     super.initState();
-    _initBarItem();
+    _navigationViews = <NavigationIconView>[
+      new NavigationIconView(
+        icon: const Icon(Icons.indeterminate_check_box),
+        title: '头条',
+        color: Colors.deepPurple,
+        vsync: this,
+      ),
+      new NavigationIconView(
+        icon: const Icon(Icons.play_circle_filled),
+        title: '视频',
+        color: Colors.deepOrange,
+        vsync: this,
+      ),
+      new NavigationIconView(
+        icon: const Icon(Icons.cloud),
+        title: '悦读',
+        color: Colors.teal,
+        vsync: this,
+      ),
+      new NavigationIconView(
+        icon: const Icon(Icons.favorite),
+        title: '发现',
+        color: Colors.indigo,
+        vsync: this,
+      ),
+      new NavigationIconView(
+        icon: const Icon(Icons.event_available),
+        title: '我的',
+        color: Colors.pink,
+        vsync: this,
+      )
+    ];
+
+    for (NavigationIconView view in _navigationViews)
+      view.controller.addListener(_rebuild);
+
+    _navigationViews[_currentIndex].controller.value = 1.0;
+  }
+
+  @override
+  void dispose() {
+    for (NavigationIconView view in _navigationViews) view.controller.dispose();
+    super.dispose();
+  }
+
+  void _rebuild() {
+    setState(() {
+      // Rebuild in order to animate views.
+    });
+  }
+
+  Widget _buildTransitionsStack() {
+    final List<FadeTransition> transitions = <FadeTransition>[];
+
+    for (NavigationIconView view in _navigationViews)
+      transitions.add(view.transition(_type, context));
+
+    // We want to have the newly animating (fading in) views on top.
+    transitions.sort((FadeTransition a, FadeTransition b) {
+      final Animation<double> aAnimation = a.opacity;
+      final Animation<double> bAnimation = b.opacity;
+      final double aValue = aAnimation.value;
+      final double bValue = bAnimation.value;
+      return aValue.compareTo(bValue);
+    });
+
+    return new Stack(children: transitions);
   }
 
   @override
   Widget build(BuildContext context) {
-    return new CupertinoTabScaffold(
-        tabBar: _tabBar(),
-        tabBuilder: (context, index) {
-          switch (index) {
-            case 0:
-              return new home();
-            case 1:
-              return new video();
-          }
+    final BottomNavigationBar botNavBar = new BottomNavigationBar(
+      items: _navigationViews
+          .map((NavigationIconView navigationView) => navigationView.item)
+          .toList(),
+      currentIndex: _currentIndex,
+      type: _type,
+      onTap: (int index) {
+        setState(() {
+          _navigationViews[_currentIndex].controller.reverse();
+          _currentIndex = index;
+          _navigationViews[_currentIndex].controller.forward();
         });
-  }
+      },
+    );
 
-  Widget _tabBar() {
-    return new CupertinoTabBar(
-      items: _items,
+    return new Scaffold(
+      /*appBar: new AppBar(
+        title: const Text('Bottom navigation'),
+        actions: <Widget>[
+          new PopupMenuButton<BottomNavigationBarType>(
+            onSelected: (BottomNavigationBarType value) {
+              setState(() {
+                _type = value;
+              });
+            },
+            itemBuilder: (BuildContext context) =>
+                <PopupMenuItem<BottomNavigationBarType>>[
+                  const PopupMenuItem<BottomNavigationBarType>(
+                    value: BottomNavigationBarType.fixed,
+                    child: const Text('Fixed'),
+                  ),
+                  const PopupMenuItem<BottomNavigationBarType>(
+                    value: BottomNavigationBarType.shifting,
+                    child: const Text('Shifting'),
+                  )
+                ],
+          )
+        ],
+      ),*/
+      body: new Center(child: _buildTransitionsStack()),
+      bottomNavigationBar: botNavBar,
     );
   }
 }
